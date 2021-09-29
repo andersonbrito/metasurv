@@ -6,14 +6,14 @@ import pycountry
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Filter nextstrain metadata files re-formmating and exporting only selected lines",
+        description="Filter metadata files re-formmating and exporting only selected lines",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("--metadata", required=True, help="Metadata TSV file")
     parser.add_argument("--index-column", required=True, help="Column with unique geographic information")
     parser.add_argument("--new-index", required=False, type=str,  help="New index to be used as identifier")
     parser.add_argument("--extra-columns", required=False, nargs='+', type=str,
-                        help="extra columns with geographic info to export")
+                        help="extra columns to exported")
     parser.add_argument("--filter", required=False, type=str, help="Format: '~column_name:value'. Remove '~' to keep only that data category")
     parser.add_argument("--date-column", required=True, type=str, help="Column containing the date information")
     parser.add_argument("--start-date", required=False, type=str, help="Start date in YYYY-MM-DD format")

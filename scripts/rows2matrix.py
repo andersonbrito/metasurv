@@ -6,11 +6,12 @@
 #
 #
 # Release date: 2021-08-22
-# Last update: 2021-08-22
+# Last update: 2021-09-22
 
 import pandas as pd
 import argparse
 import time
+from datetime import timedelta
 
 pd.set_option('max_columns', 100)
 
@@ -24,33 +25,36 @@ if __name__ == '__main__':
     parser.add_argument("--xtype", required=False, type=str, help="Is the x variable a time variable (date)? If so, enter 'time'")
     parser.add_argument("--target", required=False, type=str, help="Target column, when variable is already aggregated")
     parser.add_argument("--yvar", required=True, type=str, help="Data that goes in the Y axis of the matrix")
+    parser.add_argument("--extra-columns", required=False, nargs='+', type=str, help="extra columns to exported")
     parser.add_argument("--filter", required=False, type=str, help="Format: '~column_name:value'. Remove '~' to keep only that data category")
     parser.add_argument("--start-date", required=False, type=str,  help="Start date in YYYY-MM-DD format")
     parser.add_argument("--end-date", required=False, type=str,  help="End date in YYYY-MM-DD format")
     parser.add_argument("--output", required=True, help="TSV matrix")
     args = parser.parse_args()
 
-
     input = args.input
     x_var = args.xvar
     x_type = args.xtype
     target_variable = args.target
     y_var = args.yvar
+    extra_cols = args.extra_columns
     filter_value = args.filter
     start_date = args.start_date
     end_date = args.end_date
     output = args.output
 
-    # path = '/Users/anderson/GLab Dropbox/Anderson Brito/ITpS/projetos_itps/dashboard/bimap/pipeline/data/'
-    # input = path + 'cases-brazil-states.csv'
+
+    # path = '/Users/anderson/GLab Dropbox/Anderson Brito/ITpS/projetos_itps/dashboard/nextstrain/run5_20210921_itps2/ncovbr/data/'
+    # input = path + 'metadata.tsv'
     # x_var = 'date'
     # x_type = 'time'
-    # target_variable = 'newCases'
-    # y_var = 'state'
-    # filter_value = '~state:TOTAL'
-    # start_date = '2021-01-01' # start date above this limit
-    # end_date = '2021-04-30' # end date below this limit
-    # output = path + 'matrix_states_brazil.tsv'
+    # target_variable = ''
+    # y_var = 'variant_lineage'
+    # extra_cols = 'country'
+    # filter_value = 'country:Brazil-North'
+    # start_date = '2021-07-25' # start date above this limit
+    # end_date = '2021-09-18' # end date below this limit
+    # output = path + 'matrix.tsv'
 
 
     def load_table(file):
@@ -92,8 +96,11 @@ if __name__ == '__main__':
         df[x_var] = df[x_var].dt.strftime('%Y-%m-%d')
 
     # print(df.head)
-
-    cols = sorted(df[x_var].unique().tolist())
+    if x_type == 'time':
+        time_range = [day.strftime('%Y-%m-%d') for day in list(pd.date_range(pd.to_datetime(start_date), pd.to_datetime(end_date), freq='d'))]
+        cols = time_range
+    else:
+        cols = sorted(df[x_var].unique().tolist())
     rows = sorted(df[y_var].unique().tolist())
 
     # print(cols)
@@ -116,6 +123,10 @@ if __name__ == '__main__':
         y = df.loc[idx, y_var]
         count = df.loc[idx, 'count']
         df2.at[y, x] = count
+
+    if filter_value not in ['', None]:
+        df2.insert(0, filter_value.split(':')[0].strip(), '')
+        df2[filter_value.split(':')[0].strip()] = filter_value.split(':')[1].strip()
 
     # save
     df2.to_csv(output, sep='\t', index=True)
