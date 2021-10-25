@@ -24,6 +24,8 @@ if __name__ == '__main__':
     parser.add_argument("--xvar", required=True, type=str, help="Data that goes in the X axis of the matrix")
     parser.add_argument("--xtype", required=False, type=str, help="Is the x variable a time variable (date)? If so, enter 'time'")
     parser.add_argument("--target", required=False, type=str, help="Target column, when variable is already aggregated")
+    parser.add_argument("--sum-target",required=False, nargs=1, type=str, default='no',
+                        choices=['no', 'yes'], help="Should values in target column be summed up?")
     parser.add_argument("--yvar", required=True, type=str, help="Data that goes in the Y axis of the matrix")
     parser.add_argument("--extra-columns", required=False, nargs='+', type=str, help="extra columns to export")
     parser.add_argument("--filter", required=False, type=str, help="Format: '~column_name:value'. Remove '~' to keep only that data category")
@@ -36,8 +38,9 @@ if __name__ == '__main__':
     x_var = args.xvar
     x_type = args.xtype
     target_variable = args.target
+    sum_target = args.sum_target
     y_var = args.yvar
-    extra_cols = args.extra_columns[0]
+    extra_cols = args.extra_columns
     filter_value = args.filter
     start_date = args.start_date
     end_date = args.end_date
@@ -49,6 +52,7 @@ if __name__ == '__main__':
     # x_type = 'time'
     # target_variable = 'new_confirmed'
     # y_var = 'state'
+    # sum_target = 'no'
     # extra_cols = 'city_ibge_code, estimated_population_2019'
     # filter_value = 'place_type:state'
     # start_date = '2021-08-29' # start date above this limit
@@ -113,7 +117,7 @@ if __name__ == '__main__':
     if extra_cols == None:
         extra_cols = []
     else:
-        extra_cols = [x.strip() for x in extra_cols.split(',')]
+        extra_cols = [x.strip() for x in extra_cols[0].split(',')]
 
     for column in extra_cols:
         if column in df.columns.to_list():
@@ -124,8 +128,12 @@ if __name__ == '__main__':
     if target_variable in ['', None]:
         df = df.groupby([x_var, y_var]).size().to_frame(name='count').reset_index() # group and count occorrences
     else:
-        # df = df[[x_var, y_var, target_variable]]
-        df = df.rename(columns={target_variable: 'count'})
+        if sum_target == 'yes':
+            print(x_var, y_var)
+            df = df.groupby([x_var, y_var]).sum().to_frame(name='count').reset_index()
+            # df['count'] = df[target_variable].groupby(df[[x_var, y_var]]).transform('sum')
+        else:
+            df = df.rename(columns={target_variable: 'count'})
 
     df.set_index(y_var, inplace=True)
 
@@ -145,6 +153,9 @@ if __name__ == '__main__':
         x = df.loc[idx, x_var]
         y = df.loc[idx, y_var]
         count = df.loc[idx, 'count']
+        if float(count) < 0:
+            print(count)
+            count = 0
         df2.at[y, x] = count
 
     # if filter_value not in ['', None]:
