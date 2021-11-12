@@ -38,7 +38,7 @@ if __name__ == '__main__':
     x_var = args.xvar
     x_type = args.xtype
     target_variable = args.target
-    sum_target = args.sum_target
+    sum_target = args.sum_target[0]
     y_var = args.yvar
     extra_cols = args.extra_columns
     filter_value = args.filter
@@ -46,19 +46,20 @@ if __name__ == '__main__':
     end_date = args.end_date
     output = args.output
 
-    # path = '/Users/anderson/GLab Dropbox/Anderson Brito/ITpS/projetos_itps/metasurvBR/analyses/bubbles_20211016/'
-    # input = path + 'caso_full.csv'
+    # path = '/Users/anderson/GLab Dropbox/Anderson Brito/misc/data_analysis/gmail/'
+    # input = path + 'file_sizes.tsv'
     # x_var = 'date'
     # x_type = 'time'
-    # target_variable = 'new_confirmed'
-    # y_var = 'state'
-    # sum_target = 'no'
-    # extra_cols = 'city_ibge_code, estimated_population_2019'
-    # filter_value = 'place_type:state'
-    # start_date = '2021-08-29' # start date above this limit
-    # end_date = '2021-10-09' # end date below this limit
+    # target_variable = 'size'
+    # y_var = 'title'
+    # sum_target = 'yes'
+    # extra_cols = None
+    # filter_value = None
+    # start_date = None # start date above this limit
+    # end_date = None # end date below this limit
     # output = path + 'matrix.tsv'
 
+    print(sum_target)
 
     def load_table(file):
         df = ''
@@ -89,9 +90,9 @@ if __name__ == '__main__':
     if x_type == 'time':
         today = time.strftime('%Y-%m-%d', time.gmtime())
         df[x_var] = pd.to_datetime(df[x_var])  # converting to datetime format
-        if start_date == None:
+        if start_date in [None, '']:
             start_date = df[x_var].min()
-        if end_date == None:
+        if end_date in [None, '']:
             end_date = today
 
         mask = (df[x_var] >= start_date) & (df[x_var] <= end_date)  # mask any lines with dates outside the start/end dates
@@ -110,11 +111,11 @@ if __name__ == '__main__':
     # print(cols)
     # print(rows)
 
-    df2 = pd.DataFrame(index=rows, columns=cols)
+    df2 = pd.DataFrame(index=rows, columns=cols, dtype='float64')
     df2 = df2.fillna(0) # with 0s rather than NaNs
 
     # add other columns, if available
-    if extra_cols == None:
+    if extra_cols in [None, '']:
         extra_cols = []
     else:
         extra_cols = [x.strip() for x in extra_cols[0].split(',')]
@@ -123,24 +124,26 @@ if __name__ == '__main__':
         if column in df.columns.to_list():
             df2.insert(0, column, '')
 
+    # print(df[target_variable].tolist())
     # give index a name
     df2.index.name = y_var
     if target_variable in ['', None]:
         df = df.groupby([x_var, y_var]).size().to_frame(name='count').reset_index() # group and count occorrences
     else:
         if sum_target == 'yes':
-            print(x_var, y_var)
-            df = df.groupby([x_var, y_var]).sum().to_frame(name='count').reset_index()
+            df[target_variable] = df[target_variable].astype(float)
+            # df = df.groupby([x_var, y_var]).sum().to_frame(name='count').reset_index()
+            df = df.groupby([x_var, y_var], sort=False)[target_variable].sum().reset_index(name='count')
+            df['count'] = df['count'].round(2)
             # df['count'] = df[target_variable].groupby(df[[x_var, y_var]]).transform('sum')
         else:
             df = df.rename(columns={target_variable: 'count'})
-
+    # print(df['count'].tolist())
     df.set_index(y_var, inplace=True)
 
     # fill extra columns with their original content
     for idx, row in df2.iterrows():
         for column in extra_cols:
-            # print(df.columns.to_list())
             if column in df.columns.to_list():
                 value = df.loc[idx, column][0]
                 # value = df.loc[df.index == idx][column].values[0]
@@ -153,14 +156,10 @@ if __name__ == '__main__':
         x = df.loc[idx, x_var]
         y = df.loc[idx, y_var]
         count = df.loc[idx, 'count']
-        if float(count) < 0:
-            print(count)
+        # print(x, y, count)
+        if count < 0:
             count = 0
         df2.at[y, x] = count
-
-    # if filter_value not in ['', None]:
-    #     df2.insert(0, filter_value.split(':')[0].strip(), '')
-    #     df2[filter_value.split(':')[0].strip()] = filter_value.split(':')[1].strip()
 
     # save
     df2.to_csv(output, sep='\t', index=True)

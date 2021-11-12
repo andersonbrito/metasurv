@@ -88,6 +88,8 @@ if __name__ == '__main__':
             if unit == 'week':
                 epiweek = str(Week.fromdate(date, system="cdc")) # get epiweeks
                 epiweek = epiweek[:4] + '_' + 'EW' + epiweek[-2:]
+                epiweek = Week(int(epiweek[:4]), int(epiweek[-2:])).enddate()
+#                 print(week.enddate())
                 if epiweek not in time_cols:
                     time_cols.append(epiweek)
                 return epiweek
