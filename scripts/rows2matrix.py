@@ -26,6 +26,8 @@ if __name__ == '__main__':
     parser.add_argument("--target", required=False, type=str, help="Target column, when variable is already aggregated")
     parser.add_argument("--sum-target",required=False, nargs=1, type=str, default='no',
                         choices=['no', 'yes'], help="Should values in target column be summed up?")
+    parser.add_argument("--format",required=False, nargs=1, type=str, default='float',
+                        choices=['float', 'integer'], help="What is the format of the data points (float/integer)?")
     parser.add_argument("--yvar", required=True, type=str, help="Data that goes in the Y axis of the matrix")
     parser.add_argument("--extra-columns", required=False, nargs='+', type=str, help="extra columns to export")
     parser.add_argument("--filter", required=False, type=str, help="Format: '~column_name:value'. Remove '~' to keep only that data category")
@@ -39,23 +41,25 @@ if __name__ == '__main__':
     x_type = args.xtype
     target_variable = args.target
     sum_target = args.sum_target[0]
+    data_format = args.format[0]
     y_var = args.yvar
-    extra_cols = args.extra_columns
+    extra_cols = args.extra_columns[0]
     filter_value = args.filter
     start_date = args.start_date
     end_date = args.end_date
     output = args.output
 
-    # path = '/Users/anderson/GLab Dropbox/Anderson Brito/misc/data_analysis/gmail/'
-    # input = path + 'file_sizes.tsv'
+    # path = '/Users/anderson/GLab Dropbox/Anderson Brito/ITpS/projetos_itps/dashboard/nextstrain/run8_20211029_itps5/data/'
+    # input = path + 'newdataframe.tsv'
     # x_var = 'date'
     # x_type = 'time'
-    # target_variable = 'size'
-    # y_var = 'title'
-    # sum_target = 'yes'
-    # extra_cols = None
-    # filter_value = None
-    # start_date = None # start date above this limit
+    # y_var = 'cd_hlt_'
+    # target_variable = ''
+    # sum_target = ''
+    # data_format = 'float'
+    # extra_cols = 'nm_hlt_, division, location, abbrv_s'
+    # filter_value = ''
+    # start_date = '2021-09-12' # start date above this limit
     # end_date = None # end date below this limit
     # output = path + 'matrix.tsv'
 
@@ -80,6 +84,7 @@ if __name__ == '__main__':
 
     df = load_table(input)
     df.fillna('', inplace=True)
+    df = df[~df[y_var].isin([''])]
     if filter_value not in ['', None]:
         if filter_value.startswith('~'):
             filter_value = filter_value[1:]
@@ -107,18 +112,17 @@ if __name__ == '__main__':
         cols = sorted(df[x_var].unique().tolist())
     rows = sorted(df[y_var].unique().tolist())
 
-
     # print(cols)
     # print(rows)
 
-    df2 = pd.DataFrame(index=rows, columns=cols, dtype='float64')
+    df2 = pd.DataFrame(index=rows, columns=cols)
     df2 = df2.fillna(0) # with 0s rather than NaNs
 
     # add other columns, if available
     if extra_cols in [None, '']:
         extra_cols = []
     else:
-        extra_cols = [x.strip() for x in extra_cols[0].split(',')]
+        extra_cols = [x.strip() for x in extra_cols.split(',')]
 
     for column in extra_cols:
         if column in df.columns.to_list():
@@ -128,37 +132,55 @@ if __name__ == '__main__':
     # give index a name
     df2.index.name = y_var
     if target_variable in ['', None]:
-        df = df.groupby([x_var, y_var]).size().to_frame(name='count').reset_index() # group and count occorrences
+        df1 = df.groupby([x_var, y_var]).size().to_frame(name='count').reset_index() # group and count occorrences
+
     else:
         if sum_target == 'yes':
-            df[target_variable] = df[target_variable].astype(float)
-            # df = df.groupby([x_var, y_var]).sum().to_frame(name='count').reset_index()
-            df = df.groupby([x_var, y_var], sort=False)[target_variable].sum().reset_index(name='count')
-            df['count'] = df['count'].round(2)
+            if data_format == 'float':
+                df[target_variable] = df[target_variable].astype(float)
+            else:
+                df[target_variable] = df[target_variable].astype(int)
+
+            df1 = df.groupby([x_var, y_var], sort=False)[target_variable].sum().reset_index(name='count')
+
+            if data_format == 'float':
+                df1['count'] = df1['count'].round(2)
             # df['count'] = df[target_variable].groupby(df[[x_var, y_var]]).transform('sum')
         else:
-            df = df.rename(columns={target_variable: 'count'})
+            df1 = df.rename(columns={target_variable: 'count'})
+
     # print(df['count'].tolist())
+
+    df[y_var] = df[y_var].astype(str)
+    df1[y_var] = df1[y_var].astype(str)
+
     df.set_index(y_var, inplace=True)
+    df1.set_index(y_var, inplace=True)
 
     # fill extra columns with their original content
+    df2.index = df2.index.astype(str)
     for idx, row in df2.iterrows():
         for column in extra_cols:
             if column in df.columns.to_list():
-                value = df.loc[idx, column][0]
+                try:
+                    value = df.loc[idx, column].tolist()[0]
+                except:
+                    value = df.loc[idx, column]
+
                 # value = df.loc[df.index == idx][column].values[0]
                 df2.at[idx, column] = value
 
-    df = df.reset_index()
+    df1 = df1.reset_index()
 
     # populate output dataframe
-    for idx, row in df.iterrows():
-        x = df.loc[idx, x_var]
-        y = df.loc[idx, y_var]
-        count = df.loc[idx, 'count']
+    for idx, row in df1.iterrows():
+        x = df1.loc[idx, x_var]
+        y = df1.loc[idx, y_var]
+        count = df1.loc[idx, 'count']
         # print(x, y, count)
         if count < 0:
             count = 0
+
         df2.at[y, x] = count
 
     # save
