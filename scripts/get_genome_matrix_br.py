@@ -29,7 +29,7 @@ if __name__ == '__main__':
     if new_index not in [None, '']:
         id = new_index
     else:
-        id = geo_col
+        id = id
     group_by = [id, date_col]
     filter_value = args.filter
     start_date = args.start_date

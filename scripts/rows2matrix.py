@@ -63,7 +63,6 @@ if __name__ == '__main__':
     # end_date = None # end date below this limit
     # output = path + 'matrix.tsv'
 
-    print(sum_target)
 
     def load_table(file):
         df = ''
